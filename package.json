@@ -1,0 +1,22 @@
+{
+  "name": "stone-server-js-api",
+  "version": "1.0.0",
+  "description": "Javascript API for stone server",
+  "main": "dist/index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CodeHz/stone-server-js-api.git"
+  },
+  "keywords": [
+    "stone-server"
+  ],
+  "author": "CodeHz",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/CodeHz/stone-server-js-api/issues"
+  },
+  "homepage": "https://github.com/CodeHz/stone-server-js-api#readme",
+  "devDependencies": {
+    "@types/node": "^10.12.18"
+  }
+}

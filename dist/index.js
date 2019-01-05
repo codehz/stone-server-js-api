@@ -2,8 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const child_process_1 = require("child_process");
 const AStream_1 = require("./AStream");
-const path = require("path");
-let base = process.env.STONE_SERVER_BASE || path.join(__dirname, "..");
+let base = process.env.STONE_SERVER_BASE || ".";
 function setBase(path) {
     base = path;
 }

@@ -2,7 +2,7 @@ import { spawn, ChildProcess } from "child_process";
 import { AStream, makeAStream } from "./AStream";
 import * as path from "path";
 
-let base = process.env.STONE_SERVER_BASE || path.join(__dirname, "..");
+let base = process.env.STONE_SERVER_BASE || ".";
 
 export function setBase(path: string) {
   base = path;

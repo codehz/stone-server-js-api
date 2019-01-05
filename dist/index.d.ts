@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import { ChildProcess } from "child_process";
+export declare function setBase(path: string): void;
 export declare type gen_callback<T> = (this: ChildProcess, data: T) => void;
 export interface StandardError {
     code: number | null;

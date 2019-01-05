@@ -2,7 +2,11 @@ import { spawn, ChildProcess } from "child_process";
 import { AStream, makeAStream } from "./AStream";
 import * as path from "path";
 
-const base = process.env.STONE_SERVER_BASE || path.join(__dirname, "..");
+let base = process.env.STONE_SERVER_BASE || path.join(__dirname, "..");
+
+export function setBase(path: string) {
+  base = path;
+}
 
 export type gen_callback<T> = (this: ChildProcess, data: T) => void;
 export interface StandardError {

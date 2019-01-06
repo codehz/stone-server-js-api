@@ -51,4 +51,20 @@ export declare const monitor_log: () => AsyncIterableIterator<LogItem>;
 export declare function send_chat(sender: string, message: string, timeout?: number): Promise<void>;
 export declare function send_broadcast(message: string, timeout?: number): Promise<void>;
 export declare function execute_command(sender: string, command: string, timeout?: number): Promise<string>;
+export declare type blacklist_add = {
+    type: "add-uuid" | "add-xuid" | "add-name";
+    id: string;
+    reason: string;
+};
+export declare type blacklist_kick = {
+    type: "kick-uuid" | "kick-xuid" | "kick-name";
+    id: string;
+    reason: string;
+};
+export declare type blacklist_del = {
+    type: "del-uuid" | "del-xuid";
+    id: string;
+};
+export declare type blacklist_param = blacklist_add | blacklist_kick | blacklist_del;
+export declare function manage_blacklist(param: blacklist_param, timeout?: number): Promise<void>;
 export {};

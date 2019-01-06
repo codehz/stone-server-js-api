@@ -267,3 +267,62 @@ export function execute_command(
     });
   });
 }
+
+export type blacklist_add = {
+  type: "add-uuid" | "add-xuid" | "add-name";
+  id: string;
+  reason: string;
+};
+
+export type blacklist_kick = {
+  type: "kick-uuid" | "kick-xuid" | "kick-name";
+  id: string;
+  reason: string;
+};
+
+export type blacklist_del = { type: "del-uuid" | "del-xuid"; id: string };
+
+export type blacklist_param = blacklist_add | blacklist_kick | blacklist_del;
+
+function is_blacklist_add(p: blacklist_param): p is blacklist_add {
+  return ["add-uuid", "add-xuid", "add-name"].includes(p.type);
+}
+function is_blacklist_kick(p: blacklist_param): p is blacklist_add {
+  return ["kick-uuid", "kick-xuid", "kick-name"].includes(p.type);
+}
+function is_blacklist_del(p: blacklist_param): p is blacklist_add {
+  return ["del-uuid", "del-xuid"].includes(p.type);
+}
+
+export function manage_blacklist(
+  param: blacklist_param,
+  timeout: number = 1000
+): Promise<void> {
+  let arr: string[];
+  if (is_blacklist_add(param) || is_blacklist_kick(param))
+    arr = [param.type, param.id, param.reason];
+  else if (is_blacklist_del(param)) arr = [param.type, param.id];
+  else return Promise.reject(new TypeError("blacklist"));
+  return new Promise((resolve, reject) => {
+    let proc: ChildProcess;
+    const timer = setTimeout(() => {
+      reject(TimeoutError);
+      if (proc) proc.kill("SIGKILL");
+    }, timeout);
+    let log = "";
+    proc = oneway_api("blacklist", {
+      params: arr,
+      err(info) {
+        log += info.toString("utf-8");
+      },
+      exit({ code, signal }) {
+        if (signal !== "SIGKILL") {
+          if (code === 0) {
+            clearTimeout(timer);
+            resolve();
+          } else reject(makeStandardError(code, signal, log));
+        }
+      }
+    });
+  });
+}

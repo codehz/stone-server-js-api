@@ -204,4 +204,48 @@ function execute_command(sender, command, timeout = 1000) {
     });
 }
 exports.execute_command = execute_command;
+function is_blacklist_add(p) {
+    return ["add-uuid", "add-xuid", "add-name"].includes(p.type);
+}
+function is_blacklist_kick(p) {
+    return ["kick-uuid", "kick-xuid", "kick-name"].includes(p.type);
+}
+function is_blacklist_del(p) {
+    return ["del-uuid", "del-xuid"].includes(p.type);
+}
+function manage_blacklist(param, timeout = 1000) {
+    let arr;
+    if (is_blacklist_add(param) || is_blacklist_kick(param))
+        arr = [param.type, param.id, param.reason];
+    else if (is_blacklist_del(param))
+        arr = [param.type, param.id];
+    else
+        return Promise.reject(new TypeError("blacklist"));
+    return new Promise((resolve, reject) => {
+        let proc;
+        const timer = setTimeout(() => {
+            reject(exports.TimeoutError);
+            if (proc)
+                proc.kill("SIGKILL");
+        }, timeout);
+        let log = "";
+        proc = oneway_api("blacklist", {
+            params: arr,
+            err(info) {
+                log += info.toString("utf-8");
+            },
+            exit({ code, signal }) {
+                if (signal !== "SIGKILL") {
+                    if (code === 0) {
+                        clearTimeout(timer);
+                        resolve();
+                    }
+                    else
+                        reject(makeStandardError(code, signal, log));
+                }
+            }
+        });
+    });
+}
+exports.manage_blacklist = manage_blacklist;
 //# sourceMappingURL=index.js.map

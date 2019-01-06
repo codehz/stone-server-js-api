@@ -1,11 +1,15 @@
-import { spawn, ChildProcess } from "child_process";
+import { spawn, ChildProcess, StdioOptions } from "child_process";
 import { AStream, makeAStream } from "./AStream";
-import * as path from "path";
 
 let base = process.env.STONE_SERVER_BASE || ".";
+let direct = !!process.env.STONE_SERVER_DIRECT;
 
 export function setBase(path: string) {
   base = path;
+}
+
+export function setDirect(op: boolean = true) {
+  direct = op;
 }
 
 export type gen_callback<T> = (this: ChildProcess, data: T) => void;
@@ -23,22 +27,37 @@ function makeStandardError(
 }
 export const TimeoutError = Symbol("timeout");
 
+function doSpawn(
+  name: string,
+  params: string[],
+  stdio: StdioOptions
+): ChildProcess {
+  return direct
+    ? spawn(`./dbus-api-${name}`, params, {
+        cwd: base,
+        stdio
+      })
+    : spawn("./wrapper", [`./dbus-api-${name}`, ...params], {
+        cwd: base,
+        stdio
+      });
+}
+
 export function readonly_api(
   name: string,
   {
     out,
     err,
+    params = [],
     exit
   }: {
     out: gen_callback<Buffer>;
     err: gen_callback<Buffer>;
+    params?: string[];
     exit?: gen_callback<{ code: number | null; signal: string | null }>;
   }
 ): ChildProcess {
-  const proc = spawn("./wrapper", [`./dbus-api-${name}`], {
-    cwd: base,
-    stdio: ["ignore", "pipe", "pipe"]
-  });
+  const proc = doSpawn(name, params, ["ignore", "pipe", "pipe"]);
   proc.stdout.on("data", out);
   proc.stderr.on("data", err);
   proc.once("exit", (code, signal) => {
@@ -61,10 +80,7 @@ export function oneway_api(
     exit?: gen_callback<{ code: number | null; signal: string | null }>;
   }
 ): ChildProcess {
-  const proc = spawn("./wrapper", [`./dbus-api-${name}`, ...params], {
-    cwd: base,
-    stdio: ["ignore", "ignore", "pipe"]
-  });
+  const proc = doSpawn(name, params, ["ignore", "ignore", "pipe"]);
   proc.stderr.on("data", err);
   proc.once("exit", (code, signal) => {
     if (exit) exit.call(proc, { code, signal });
@@ -181,8 +197,71 @@ export function send_chat(
       },
       exit({ code, signal }) {
         if (signal !== "SIGKILL") {
-          if (code === 0) clearTimeout(timer);
-          else reject(makeStandardError(code, signal, log));
+          if (code === 0) {
+            clearTimeout(timer);
+            resolve();
+          } else reject(makeStandardError(code, signal, log));
+        }
+      }
+    });
+  });
+}
+
+export function send_broadcast(
+  message: string,
+  timeout: number = 1000
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let proc: ChildProcess;
+    const timer = setTimeout(() => {
+      reject(TimeoutError);
+      if (proc) proc.kill("SIGKILL");
+    }, timeout);
+    let log = "";
+    proc = oneway_api("chat-broadcast", {
+      params: [message],
+      err(info) {
+        log += info.toString("utf-8");
+      },
+      exit({ code, signal }) {
+        if (signal !== "SIGKILL") {
+          if (code === 0) {
+            clearTimeout(timer);
+            resolve();
+          } else reject(makeStandardError(code, signal, log));
+        }
+      }
+    });
+  });
+}
+
+export function execute_command(
+  sender: string,
+  command: string,
+  timeout: number = 1000
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let proc: ChildProcess;
+    const timer = setTimeout(() => {
+      reject(TimeoutError);
+      if (proc) proc.kill("SIGKILL");
+    }, timeout);
+    let log = "";
+    let output = "";
+    proc = readonly_api("command", {
+      params: [sender, command],
+      out(data) {
+        output += data.toString("utf-8");
+      },
+      err(info) {
+        log += info.toString("utf-8");
+      },
+      exit({ code, signal }) {
+        if (signal !== "SIGKILL") {
+          if (code === 0) {
+            clearTimeout(timer);
+            resolve(output.trim());
+          } else reject(makeStandardError(code, signal, log));
         }
       }
     });

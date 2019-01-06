@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { ChildProcess } from "child_process";
 export declare function setBase(path: string): void;
+export declare function setDirect(op?: boolean): void;
 export declare type gen_callback<T> = (this: ChildProcess, data: T) => void;
 export interface StandardError {
     code: number | null;
@@ -8,9 +9,10 @@ export interface StandardError {
     log: string;
 }
 export declare const TimeoutError: unique symbol;
-export declare function readonly_api(name: string, { out, err, exit }: {
+export declare function readonly_api(name: string, { out, err, params, exit }: {
     out: gen_callback<Buffer>;
     err: gen_callback<Buffer>;
+    params?: string[];
     exit?: gen_callback<{
         code: number | null;
         signal: string | null;
@@ -47,4 +49,6 @@ export interface LogItem {
 }
 export declare const monitor_log: () => AsyncIterableIterator<LogItem>;
 export declare function send_chat(sender: string, message: string, timeout?: number): Promise<void>;
+export declare function send_broadcast(message: string, timeout?: number): Promise<void>;
+export declare function execute_command(sender: string, command: string, timeout?: number): Promise<string>;
 export {};

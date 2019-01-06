@@ -3,19 +3,32 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const child_process_1 = require("child_process");
 const AStream_1 = require("./AStream");
 let base = process.env.STONE_SERVER_BASE || ".";
+let direct = !!process.env.STONE_SERVER_DIRECT;
 function setBase(path) {
     base = path;
 }
 exports.setBase = setBase;
+function setDirect(op = true) {
+    direct = op;
+}
+exports.setDirect = setDirect;
 function makeStandardError(code, signal, log) {
     return { code, signal, log };
 }
 exports.TimeoutError = Symbol("timeout");
-function readonly_api(name, { out, err, exit }) {
-    const proc = child_process_1.spawn("./wrapper", [`./dbus-api-${name}`], {
-        cwd: base,
-        stdio: ["ignore", "pipe", "pipe"]
-    });
+function doSpawn(name, params, stdio) {
+    return direct
+        ? child_process_1.spawn(`./dbus-api-${name}`, params, {
+            cwd: base,
+            stdio
+        })
+        : child_process_1.spawn("./wrapper", [`./dbus-api-${name}`, ...params], {
+            cwd: base,
+            stdio
+        });
+}
+function readonly_api(name, { out, err, params = [], exit }) {
+    const proc = doSpawn(name, params, ["ignore", "pipe", "pipe"]);
     proc.stdout.on("data", out);
     proc.stderr.on("data", err);
     proc.once("exit", (code, signal) => {
@@ -28,10 +41,7 @@ function readonly_api(name, { out, err, exit }) {
 }
 exports.readonly_api = readonly_api;
 function oneway_api(name, { params, err, exit }) {
-    const proc = child_process_1.spawn("./wrapper", [`./dbus-api-${name}`, ...params], {
-        cwd: base,
-        stdio: ["ignore", "ignore", "pipe"]
-    });
+    const proc = doSpawn(name, params, ["ignore", "ignore", "pipe"]);
     proc.stderr.on("data", err);
     proc.once("exit", (code, signal) => {
         if (exit)
@@ -122,8 +132,10 @@ function send_chat(sender, message, timeout = 1000) {
             },
             exit({ code, signal }) {
                 if (signal !== "SIGKILL") {
-                    if (code === 0)
+                    if (code === 0) {
                         clearTimeout(timer);
+                        resolve();
+                    }
                     else
                         reject(makeStandardError(code, signal, log));
                 }
@@ -132,4 +144,64 @@ function send_chat(sender, message, timeout = 1000) {
     });
 }
 exports.send_chat = send_chat;
+function send_broadcast(message, timeout = 1000) {
+    return new Promise((resolve, reject) => {
+        let proc;
+        const timer = setTimeout(() => {
+            reject(exports.TimeoutError);
+            if (proc)
+                proc.kill("SIGKILL");
+        }, timeout);
+        let log = "";
+        proc = oneway_api("chat-broadcast", {
+            params: [message],
+            err(info) {
+                log += info.toString("utf-8");
+            },
+            exit({ code, signal }) {
+                if (signal !== "SIGKILL") {
+                    if (code === 0) {
+                        clearTimeout(timer);
+                        resolve();
+                    }
+                    else
+                        reject(makeStandardError(code, signal, log));
+                }
+            }
+        });
+    });
+}
+exports.send_broadcast = send_broadcast;
+function execute_command(sender, command, timeout = 1000) {
+    return new Promise((resolve, reject) => {
+        let proc;
+        const timer = setTimeout(() => {
+            reject(exports.TimeoutError);
+            if (proc)
+                proc.kill("SIGKILL");
+        }, timeout);
+        let log = "";
+        let output = "";
+        proc = readonly_api("command", {
+            params: [sender, command],
+            out(data) {
+                output += data.toString("utf-8");
+            },
+            err(info) {
+                log += info.toString("utf-8");
+            },
+            exit({ code, signal }) {
+                if (signal !== "SIGKILL") {
+                    if (code === 0) {
+                        clearTimeout(timer);
+                        resolve(output.trim());
+                    }
+                    else
+                        reject(makeStandardError(code, signal, log));
+                }
+            }
+        });
+    });
+}
+exports.execute_command = execute_command;
 //# sourceMappingURL=index.js.map

@@ -96,8 +96,14 @@ export interface User {
 }
 
 export interface Userlist {
+  type: "list";
   size: number;
   list: Array<User>;
+}
+
+export interface UserEvent {
+  type: "joined" | "left";
+  target: User;
 }
 
 export function fetch_userlist(timeout: number = 1000): Promise<Userlist> {
@@ -108,10 +114,13 @@ export function fetch_userlist(timeout: number = 1000): Promise<Userlist> {
     const proc = readonly_api("userlist", {
       out(data) {
         if (done) return;
-        resolve(JSON.parse(data.toString("utf-8")));
-        done = true;
-        proc.kill("SIGKILL");
-        if (timer) clearTimeout(timer);
+        const parsed = JSON.parse(data.toString("utf-8"));
+        if (parsed.type === "list") {
+          resolve(parsed);
+          done = true;
+          proc.kill("SIGKILL");
+          if (timer) clearTimeout(timer);
+        }
       },
       err(errinfo) {
         log += errinfo.toString("utf-8");
@@ -161,7 +170,9 @@ function makeStandardMonitorFn<T>(
   };
 }
 
-export const monitor_userlist = makeStandardMonitorFn<Userlist>("userlist");
+export const monitor_userlist = makeStandardMonitorFn<Userlist | UserEvent>(
+  "userlist"
+);
 
 interface ChatMessage {
   sender: string;
